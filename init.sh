@@ -14,6 +14,7 @@ php artisan config:clear
 php artisan route:clear
 php artisan view:clear
 php artisan cache:clear
+php artisan event:clear
 
 echo "Rodando migrações..."
 php artisan migrate --force
@@ -31,5 +32,14 @@ echo "Instalando Passport..."
 php artisan passport:install --force
 
 php artisan storage:link
+
+# Cache de otimização para produção
+if [ "$APP_ENV" = "production" ]; then
+    echo "Otimizando para produção..."
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    php artisan event:cache
+fi
 
 echo "=== Laravel Init finalizado ==="

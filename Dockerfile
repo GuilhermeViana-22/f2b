@@ -1,4 +1,4 @@
-# Dockerfile para Laravel API com MongoDB SSL
+# Dockerfile para Laravel API
 
 FROM php:8.2-fpm-alpine
 
@@ -6,17 +6,38 @@ FROM php:8.2-fpm-alpine
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_NO_INTERACTION=1
 
-# Instalar dependências do sistema (incluindo OpenSSL)
+# Instalar dependências do sistema - separado em etapas
+RUN apk update && apk upgrade
+
+# Dependências básicas
 RUN apk add --no-cache \
-    git curl libpng-dev oniguruma-dev libxml2-dev zip unzip mysql-client \
-    supervisor bash vim autoconf make g++ gcc libc-dev pkgconf re2c \
+    bash curl git supervisor mysql-client \
+    zip unzip \
+    && rm -rf /var/cache/apk/*
+
+# Dependências para extensões PHP
+RUN apk add --no-cache --virtual .build-deps \
+    autoconf make g++ gcc libc-dev \
+    libpng-dev oniguruma-dev libxml2-dev \
     openssl-dev
 
-# Instalar extensões PHP
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
-    && pecl install mongodb-1.21.1 \
-    && docker-php-ext-enable mongodb \
-    && rm -rf /tmp/pear
+# Instalar extensões PHP básicas
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd
+
+# Instalar Redis e MongoDB via PECL
+RUN pecl install redis mongodb \
+    && docker-php-ext-enable redis mongodb
+
+# Limpar dependências de build
+RUN apk del .build-deps \
+    && rm -rf /tmp/pear \
+    && rm -rf /var/cache/apk/*
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -47,7 +68,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN [ ! -f .env ] && cp .env.example .env || echo ".env already exists"
 
 # Expor porta
-EXPOSE 8000
+EXPOSE 8007
 
 # Comando inicial
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
