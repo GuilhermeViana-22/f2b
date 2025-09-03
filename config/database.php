@@ -91,6 +91,8 @@ return [
             'prefix_indexes' => true,
         ],
 
+        // MongoDB - COMENTADO TEMPORARIAMENTE
+        /*
         'mongodb' => [
             'driver'   => 'mongodb',
             'host'     => env('DB_MONGO_HOST', '127.0.0.1'),
@@ -102,6 +104,7 @@ return [
                 'authSource' => env('DB_MONGO_AUTHDATABASE', 'admin'),
             ],
         ],
+        */
 
     ],
 

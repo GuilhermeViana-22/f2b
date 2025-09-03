@@ -1,7 +1,8 @@
 # =============================================================================
-# Dockerfile Otimizado para Laravel 10 F2B API com MongoDB
+# Dockerfile Otimizado para Laravel 10 F2B API
 # =============================================================================
 # Build unificado para evitar problemas de dependências
+# Configurado com MySQL + Redis (MongoDB comentado temporariamente)
 # =============================================================================
 
 FROM php:8.2-fpm-alpine
@@ -19,15 +20,15 @@ RUN apk add --no-cache \
     bind-tools iproute2 net-tools \
     # Bibliotecas runtime
     libpng oniguruma libxml2 openssl libssl3 \
-    cyrus-sasl pcre zlib freetype libjpeg-turbo \
+    pcre zlib freetype libjpeg-turbo \
     && rm -rf /var/cache/apk/*
 
 # Instalar dependências de compilação temporárias
 RUN apk add --no-cache --virtual .build-deps \
     $PHPIZE_DEPS autoconf g++ gcc make pkgconfig \
     libpng-dev oniguruma-dev libxml2-dev openssl-dev \
-    cyrus-sasl-dev pcre-dev zlib-dev freetype-dev \
-    libjpeg-turbo-dev
+    pcre-dev zlib-dev freetype-dev libjpeg-turbo-dev
+    # cyrus-sasl-dev (removido - específico para MongoDB)
 
 # Configurar e instalar extensões PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -36,8 +37,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 
 # Instalar extensões PECL (silencioso)
 RUN pecl channel-update pecl.php.net \
-    && pecl install -o -f redis mongodb 2>/dev/null \
-    && docker-php-ext-enable redis mongodb
+    && pecl install -o -f redis 2>/dev/null \
+    && docker-php-ext-enable redis
+    # && pecl install -o -f mongodb 2>/dev/null \
+    # && docker-php-ext-enable mongodb
 
 # Limpar dependências de compilação
 RUN apk del .build-deps \
