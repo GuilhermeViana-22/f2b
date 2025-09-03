@@ -1,0 +1,60 @@
+/* Tema Dark Azul e Vermelho - Especificação reforçada */
+.swagger-ui {
+    --dark-blue: #0a1929;
+    --scarlet-red: #d62246;
+    --light-text: #e6e6e6;
+    --dark-border: #1e2b3c;
+    --hover-blue: #1a365d;
+}
+
+/* Fundo principal */
+.swagger-ui,
+.swagger-ui .opblock,
+.swagger-ui .model-box,
+.swagger-ui .scheme-container,
+.swagger-ui .info {
+    background-color: var(--dark-blue) !important;
+    color: var(--light-text) !important;
+}
+
+/* Barra superior */
+.swagger-ui .topbar {
+    background-color: var(--dark-blue) !important;
+    border-bottom: 2px solid var(--scarlet-red) !important;
+}
+
+/* Títulos */
+.swagger-ui .info .title,
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .opblock .opblock-summary-method {
+    color: var(--scarlet-red) !important;
+}
+
+/* Botões */
+.swagger-ui .btn {
+    background: var(--scarlet-red) !important;
+    border-color: var(--scarlet-red) !important;
+}
+
+.swagger-ui .btn:hover {
+    background: var(--hover-blue) !important;
+}
+
+/* Painéis */
+.swagger-ui .opblock {
+    border-color: var(--dark-border) !important;
+    box-shadow: 0 2px 5px rgba(214, 34, 70, 0.2) !important;
+}
+
+/* Abas */
+.swagger-ui .tab li.active a {
+    border-bottom-color: var(--scarlet-red) !important;
+    color: var(--scarlet-red) !important;
+}
+
+/* Inputs */
+.swagger-ui input {
+    background: #121a24 !important;
+    border-color: var(--dark-border) !important;
+    color: var(--light-text) !important;
+}

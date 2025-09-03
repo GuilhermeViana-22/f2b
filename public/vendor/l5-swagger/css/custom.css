@@ -1,0 +1,39 @@
+/* Tema Verde e Preto - Customização do Swagger UI */
+.swagger-ui {
+    --color-primary: #dc3445;  /* Verde principal */
+    --color-secondary: #00345f; /* Preto de fundo */
+    --color-text: #e0e0e0;      /* Texto claro */
+  }
+
+  /* Layout principal */
+  .swagger-ui .information-container {
+    background-color: var(--color-secondary) !important;
+  }
+
+  /* Barra superior */
+  .swagger-ui .topbar {
+    background-color: var(--color-primary) !important;
+  }
+
+  /* Títulos */
+  .swagger-ui .info h2,
+  .swagger-ui .opblock .opblock-summary-path {
+    color: var(--color-primary) !important;
+  }
+
+  /* Painéis */
+  .swagger-ui .opblock {
+    background-color: var(--color-secondary) !important;
+    border-color: var(--color-primary) !important;
+  }
+
+  /* Botões */
+  .swagger-ui .btn {
+    background-color: var(--color-primary) !important;
+  }
+
+  /* Textos */
+  .swagger-ui,
+  .swagger-ui .opblock .opblock-summary-description {
+    color: var(--color-text) !important;
+  }

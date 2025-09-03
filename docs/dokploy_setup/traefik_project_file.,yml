@@ -1,0 +1,44 @@
+http:
+  middlewares:
+    test-f2b-guho6m-cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowHeaders:
+          - "*"
+        accessControlAllowOriginList:
+          - "*"
+        accessControlMaxAge: 100
+        accessControlAllowCredentials: true
+        addVaryHeader: true
+
+  routers:
+    test-f2b-guho6m-router-11:
+      rule: Host(`devapi.flow2build.com`)
+      service: test-f2b-guho6m-service-11
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+
+    test-f2b-guho6m-router-websecure-11:
+      rule: Host(`devapi.flow2build.com`)
+      service: test-f2b-guho6m-service-11
+      middlewares:
+        - test-f2b-guho6m-cors
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    test-f2b-guho6m-service-11:
+      loadBalancer:
+        servers:
+          - url: http://test-f2b-guho6m:8000
+        passHostHeader: true
