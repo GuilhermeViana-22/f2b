@@ -1,32 +1,9 @@
 # =============================================================================
 # Dockerfile Otimizado para Laravel 10 F2B API com MongoDB
 # =============================================================================
-# Este Dockerfile usa multi-stage build para otimizar o processo de compilação
+# Build unificado para evitar problemas de dependências
 # =============================================================================
 
-# Stage 1: Build das extensões PHP
-FROM php:8.2-fpm-alpine AS php-extensions
-
-# Instalar dependências de compilação
-RUN apk add --no-cache --virtual .build-deps \
-    $PHPIZE_DEPS \
-    autoconf \
-    g++ \
-    gcc \
-    make \
-    pkgconfig \
-    openssl-dev \
-    libssl3 \
-    cyrus-sasl-dev \
-    pcre-dev \
-    zlib-dev
-
-# Compilar extensões (com output silencioso e configurações otimizadas)
-RUN pecl channel-update pecl.php.net \
-    && pecl install -o -f redis mongodb 2>/dev/null \
-    && docker-php-ext-enable redis mongodb
-
-# Stage 2: Imagem final otimizada
 FROM php:8.2-fpm-alpine
 
 # Variáveis de ambiente
@@ -34,37 +11,35 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_NO_INTERACTION=1
 ENV COMPOSER_MEMORY_LIMIT=-1
 
-# Copiar extensões compiladas do stage anterior
-COPY --from=php-extensions /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
-COPY --from=php-extensions /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
-
-# Instalar dependências do sistema (sem compiladores)
+# Instalar todas as dependências necessárias
 RUN apk add --no-cache \
-    bash \
-    curl \
-    git \
-    supervisor \
-    mysql-client \
-    zip \
-    unzip \
-    libpng \
-    oniguruma \
-    libxml2 \
-    openssl \
-    libssl3 \
-    cyrus-sasl \
-    pcre \
-    zlib \
+    # Ferramentas básicas
+    bash curl git supervisor mysql-client zip unzip \
+    # Bibliotecas runtime
+    libpng oniguruma libxml2 openssl libssl3 \
+    cyrus-sasl pcre zlib freetype libjpeg-turbo \
     && rm -rf /var/cache/apk/*
 
-# Instalar extensões PHP básicas
-RUN docker-php-ext-install -j$(nproc) \
-    pdo_mysql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd
+# Instalar dependências de compilação temporárias
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS autoconf g++ gcc make pkgconfig \
+    libpng-dev oniguruma-dev libxml2-dev openssl-dev \
+    cyrus-sasl-dev pcre-dev zlib-dev freetype-dev \
+    libjpeg-turbo-dev
+
+# Configurar e instalar extensões PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    pdo_mysql mbstring exif pcntl bcmath gd
+
+# Instalar extensões PECL (silencioso)
+RUN pecl channel-update pecl.php.net \
+    && pecl install -o -f redis mongodb 2>/dev/null \
+    && docker-php-ext-enable redis mongodb
+
+# Limpar dependências de compilação
+RUN apk del .build-deps \
+    && rm -rf /tmp/pear /var/cache/apk/*
 
 # Instalar Composer (versão mais estável)
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
@@ -85,6 +60,9 @@ RUN composer install \
 
 # Copiar aplicação
 COPY . .
+
+# Copiar configuração PHP personalizada
+COPY php.ini /usr/local/etc/php/conf.d/99-custom.ini
 
 # Configurar permissões e diretórios
 RUN mkdir -p \
