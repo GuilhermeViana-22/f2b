@@ -65,7 +65,7 @@ RUN ls -la composer.* \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader \
-    --verbose \
+    --ignore-platform-req=ext-mongodb \
     && composer clear-cache
 
 # Copiar aplicação
