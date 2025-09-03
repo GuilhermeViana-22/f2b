@@ -15,6 +15,8 @@ ENV COMPOSER_MEMORY_LIMIT=-1
 RUN apk add --no-cache \
     # Ferramentas básicas
     bash curl git supervisor mysql-client zip unzip \
+    # Ferramentas de rede para detecção de hosts
+    bind-tools iproute2 net-tools \
     # Bibliotecas runtime
     libpng oniguruma libxml2 openssl libssl3 \
     cyrus-sasl pcre zlib freetype libjpeg-turbo \
@@ -41,21 +43,26 @@ RUN pecl channel-update pecl.php.net \
 RUN apk del .build-deps \
     && rm -rf /tmp/pear /var/cache/apk/*
 
-# Instalar Composer (versão mais estável)
-COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
+# Instalar Composer (versão estável)
+COPY --from=composer:2.5 /usr/bin/composer /usr/bin/composer
 
 # Configurar diretório de trabalho
 WORKDIR /var/www/html
 
-# Copiar e instalar dependências PHP (cache layer)
+# Copiar arquivos do Composer
 COPY composer.json composer.lock ./
-RUN composer install \
+
+# Verificar se os arquivos existem e instalar dependências
+RUN ls -la composer.* \
+    && composer --version \
+    && composer validate --no-check-publish \
+    && composer install \
     --no-dev \
     --no-scripts \
-    --no-suggest \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader \
+    --verbose \
     && composer clear-cache
 
 # Copiar aplicação
