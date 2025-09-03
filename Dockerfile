@@ -1,28 +1,64 @@
-# Dockerfile para Laravel API
+# =============================================================================
+# Dockerfile Otimizado para Laravel 10 F2B API com MongoDB
+# =============================================================================
+# Este Dockerfile usa multi-stage build para otimizar o processo de compilação
+# =============================================================================
 
+# Stage 1: Build das extensões PHP
+FROM php:8.2-fpm-alpine AS php-extensions
+
+# Instalar dependências de compilação
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    autoconf \
+    g++ \
+    gcc \
+    make \
+    pkgconfig \
+    openssl-dev \
+    libssl3 \
+    cyrus-sasl-dev \
+    pcre-dev \
+    zlib-dev
+
+# Compilar extensões (com output silencioso e configurações otimizadas)
+RUN pecl channel-update pecl.php.net \
+    && pecl install -o -f redis mongodb 2>/dev/null \
+    && docker-php-ext-enable redis mongodb
+
+# Stage 2: Imagem final otimizada
 FROM php:8.2-fpm-alpine
 
-# Variáveis de ambiente para Composer
+# Variáveis de ambiente
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_NO_INTERACTION=1
+ENV COMPOSER_MEMORY_LIMIT=-1
 
-# Instalar dependências do sistema - separado em etapas
-RUN apk update && apk upgrade
+# Copiar extensões compiladas do stage anterior
+COPY --from=php-extensions /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=php-extensions /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
-# Dependências básicas
+# Instalar dependências do sistema (sem compiladores)
 RUN apk add --no-cache \
-    bash curl git supervisor mysql-client \
-    zip unzip \
+    bash \
+    curl \
+    git \
+    supervisor \
+    mysql-client \
+    zip \
+    unzip \
+    libpng \
+    oniguruma \
+    libxml2 \
+    openssl \
+    libssl3 \
+    cyrus-sasl \
+    pcre \
+    zlib \
     && rm -rf /var/cache/apk/*
 
-# Dependências para extensões PHP
-RUN apk add --no-cache --virtual .build-deps \
-    autoconf make g++ gcc libc-dev \
-    libpng-dev oniguruma-dev libxml2-dev \
-    openssl-dev
-
 # Instalar extensões PHP básicas
-RUN docker-php-ext-install \
+RUN docker-php-ext-install -j$(nproc) \
     pdo_mysql \
     mbstring \
     exif \
@@ -30,45 +66,57 @@ RUN docker-php-ext-install \
     bcmath \
     gd
 
-# Instalar Redis e MongoDB via PECL
-RUN pecl install redis mongodb \
-    && docker-php-ext-enable redis mongodb
+# Instalar Composer (versão mais estável)
+COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 
-# Limpar dependências de build
-RUN apk del .build-deps \
-    && rm -rf /tmp/pear \
-    && rm -rf /var/cache/apk/*
-
-# Instalar Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Diretório de trabalho
+# Configurar diretório de trabalho
 WORKDIR /var/www/html
 
-# Copiar composer.json e composer.lock para aproveitar cache de layer
+# Copiar e instalar dependências PHP (cache layer)
 COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-suggest \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    && composer clear-cache
 
-# Instalar dependências PHP apenas se mudarem (cache layer)
-RUN composer install --no-dev --optimize-autoloader --no-scripts --no-progress --prefer-dist
-
-# Copiar toda aplicação
+# Copiar aplicação
 COPY . .
 
-# Criar diretórios e definir permissões
-RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache /var/log/supervisor \
+# Configurar permissões e diretórios
+RUN mkdir -p \
+    storage/logs \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache \
+    /var/log/supervisor \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
-# Copiar script de init e supervisor
+# Copiar configurações
 COPY init.sh /var/www/html/init.sh
-RUN chmod +x /var/www/html/init.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN chmod +x /var/www/html/init.sh
 
-# Copiar .env se não existir
+# Criar .env se não existir
 RUN [ ! -f .env ] && cp .env.example .env || echo ".env already exists"
+
+# Configurações PHP para produção
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
 
 # Expor porta
 EXPOSE 8007
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8007/api/health || exit 1
 
 # Comando inicial
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

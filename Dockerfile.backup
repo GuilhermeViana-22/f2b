@@ -1,0 +1,79 @@
+# Dockerfile para Laravel API
+
+FROM php:8.2-fpm-alpine
+
+# Variáveis de ambiente para Composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_NO_INTERACTION=1
+
+# Instalar dependências do sistema - separado em etapas
+RUN apk update && apk upgrade
+
+# Dependências básicas
+RUN apk add --no-cache \
+    bash curl git supervisor mysql-client \
+    zip unzip \
+    && rm -rf /var/cache/apk/*
+
+# Dependências para extensões PHP (incluindo MongoDB)
+RUN apk add --no-cache --virtual .build-deps \
+    autoconf make g++ gcc libc-dev \
+    libpng-dev oniguruma-dev libxml2-dev \
+    openssl-dev libssl-dev cyrus-sasl-dev \
+    pcre-dev zlib-dev
+
+# Instalar extensões PHP básicas
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd
+
+# Instalar Redis via PECL (silencioso)
+RUN pecl install redis > /dev/null 2>&1 \
+    && docker-php-ext-enable redis
+
+# Instalar MongoDB via PECL (silencioso e com configurações otimizadas)
+RUN pecl install mongodb > /dev/null 2>&1 \
+    && docker-php-ext-enable mongodb
+
+# Limpar dependências de build
+RUN apk del .build-deps \
+    && rm -rf /tmp/pear \
+    && rm -rf /var/cache/apk/*
+
+# Instalar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Diretório de trabalho
+WORKDIR /var/www/html
+
+# Copiar composer.json e composer.lock para aproveitar cache de layer
+COPY composer.json composer.lock ./
+
+# Instalar dependências PHP apenas se mudarem (cache layer)
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-progress --prefer-dist
+
+# Copiar toda aplicação
+COPY . .
+
+# Criar diretórios e definir permissões
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache /var/log/supervisor \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copiar script de init e supervisor
+COPY init.sh /var/www/html/init.sh
+RUN chmod +x /var/www/html/init.sh
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copiar .env se não existir
+RUN [ ! -f .env ] && cp .env.example .env || echo ".env already exists"
+
+# Expor porta
+EXPOSE 8007
+
+# Comando inicial
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
